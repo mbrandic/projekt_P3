@@ -8,13 +8,15 @@ import {
   Alert,
 } from 'react-native';
 
-const API_URL = 'https://zencuatkidebnlyupztm.supabase.co/rest/v1/books';
+const API_URL =
+  'https://zencuatkidebnlyupztm.supabase.co/rest/v1/books';
 
 const API_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InplbmN1YXRraWRlYm5seXVwenRtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzMjQ4MDAsImV4cCI6MjA5MzkwMDgwMH0.NwhlyWxQdTH9NDVMjTFmhf3kqYmvc3RwdL-pLbKrz9U';
 
 export default function BookListScreen({ navigation }) {
   const [books, setBooks] = useState([]);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
   const headers = {
     apikey: API_KEY,
@@ -29,9 +31,6 @@ export default function BookListScreen({ navigation }) {
       });
 
       const data = await res.json();
-
-      console.log('BOOKS:', data);
-
       setBooks(data);
     } catch (e) {
       console.log(e);
@@ -41,68 +40,47 @@ export default function BookListScreen({ navigation }) {
 
   const deleteBook = async (id) => {
     try {
-      console.log('Deleting ID:', id);
-
-      const res = await fetch(
-        `${API_URL}?id=eq.${id}`,
-        {
-          method: 'DELETE',
-          headers: {
-            apikey: API_KEY,
-            Authorization: `Bearer ${API_KEY}`,
-            'Content-Type': 'application/json',
-            Prefer: 'return=representation',
-          },
-        }
-      );
-
-      console.log('STATUS:', res.status);
-
-      const text = await res.text();
-
-      console.log('RESPONSE:', text);
+      const res = await fetch(`${API_URL}?id=eq.${id}`, {
+        method: 'DELETE',
+        headers: {
+          apikey: API_KEY,
+          Authorization: `Bearer ${API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+      });
 
       if (res.ok) {
-        Alert.alert('Success', 'Book deleted');
-
         getBooks();
       } else {
+        const text = await res.text();
         Alert.alert('Delete failed', text);
       }
     } catch (error) {
       console.log(error);
-
       Alert.alert('Error', error.message);
     }
   };
 
   useEffect(() => {
     const unsub = navigation.addListener('focus', getBooks);
-
     return unsub;
   }, [navigation]);
 
   const renderItem = ({ item }) => (
     <View style={styles.card}>
       <Text style={styles.title}>{item.title}</Text>
-
       <Text style={styles.author}>by {item.author}</Text>
 
       <View style={styles.metaRow}>
         <Text style={styles.meta}>ISBN: {item.isbn}</Text>
-
-        <Text style={styles.meta}>
-          Year: {item.publishedyear}
-        </Text>
+        <Text style={styles.meta}>Year: {item.publishedyear}</Text>
       </View>
 
       <View
         style={[
           styles.badge,
           {
-            backgroundColor: item.available
-              ? '#16a34a'
-              : '#dc2626',
+            backgroundColor: item.available ? '#16a34a' : '#dc2626',
           },
         ]}
       >
@@ -115,9 +93,7 @@ export default function BookListScreen({ navigation }) {
         <TouchableOpacity
           style={styles.detailsBtn}
           onPress={() =>
-            navigation.navigate('BookDetails', {
-              book: item,
-            })
+            navigation.navigate('BookDetails', { book: item })
           }
         >
           <Text style={styles.btnText}>Details</Text>
@@ -126,9 +102,7 @@ export default function BookListScreen({ navigation }) {
         <TouchableOpacity
           style={styles.editBtn}
           onPress={() =>
-            navigation.navigate('AddEditBook', {
-              book: item,
-            })
+            navigation.navigate('AddEditBook', { book: item })
           }
         >
           <Text style={styles.btnText}>Edit</Text>
@@ -136,11 +110,7 @@ export default function BookListScreen({ navigation }) {
 
         <TouchableOpacity
           style={styles.deleteBtn}
-          onPress={async () => {
-            console.log('BUTTON PRESSED');
-
-            await deleteBook(item.id);
-          }}
+          onPress={() => setConfirmDeleteId(item.id)}
         >
           <Text style={styles.btnText}>Delete</Text>
         </TouchableOpacity>
@@ -165,6 +135,38 @@ export default function BookListScreen({ navigation }) {
         renderItem={renderItem}
         contentContainerStyle={{ paddingBottom: 30 }}
       />
+
+      {/* CONFIRM DELETE MODAL */}
+      {confirmDeleteId && (
+        <View style={styles.overlay}>
+          <View style={styles.modal}>
+            <Text style={styles.modalTitle}>Delete book?</Text>
+
+            <Text style={styles.modalText}>
+              Are you sure you want to delete this book?
+            </Text>
+
+            <View style={styles.modalRow}>
+              <TouchableOpacity
+                onPress={() => setConfirmDeleteId(null)}
+                style={[styles.modalBtn, { backgroundColor: '#9ca3af' }]}
+              >
+                <Text style={styles.modalBtnText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={async () => {
+                  await deleteBook(confirmDeleteId);
+                  setConfirmDeleteId(null);
+                }}
+                style={[styles.modalBtn, { backgroundColor: '#ef4444' }]}
+              >
+                <Text style={styles.modalBtnText}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -274,6 +276,53 @@ const styles = StyleSheet.create({
   },
 
   btnText: {
+    color: 'white',
+    fontWeight: '600',
+  },
+
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  modal: {
+    width: '80%',
+    backgroundColor: 'white',
+    padding: 20,
+    borderRadius: 16,
+  },
+
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 10,
+  },
+
+  modalText: {
+    marginBottom: 20,
+    color: '#374151',
+  },
+
+  modalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+
+  modalBtn: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginHorizontal: 5,
+  },
+
+  modalBtnText: {
     color: 'white',
     fontWeight: '600',
   },
